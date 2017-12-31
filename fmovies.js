@@ -49,8 +49,8 @@ function setPageHeader(page, title) {
 
 service.create(plugin.title, plugin.id + ":start", 'video', true, logo);
 
-var sg = settings.globalSettings('settings', plugin.title, logo, plugin.synopsis);
-sg.createString('baseUrl', "Base URL without '/' at the end", 'https://fmovies.to', function(v) {
+settings.globalSettings('settings', plugin.title, logo, plugin.synopsis);
+settings.createString('baseUrl', "Base URL without '/' at the end", 'https://fmovies.to', function(v) {
     service.baseUrl = v;
 });
 
