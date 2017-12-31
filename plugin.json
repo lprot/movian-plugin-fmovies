@@ -1,0 +1,15 @@
+{
+	"description": "<p>FMovies : Watch movies online for free<p>For additional information, visit <a href=\"http://fmovies.to\">http://fmovies.to</a>",
+	"author": "lprot",
+	"homepage": "http://github.com/lprot/movian-plugin-fmovies",
+	"title": "FMovies",
+	"synopsis": "FMovies : Watch movies online for free",
+	"version": "0.1",
+        "file": "fmovies.js",
+	"showtimeVersion": "4.8",
+	"type": "ecmascript",
+	"icon": "logo.png",
+	"id": "fmovies",
+	"category": "video",
+        "apiversion": 1
+}
