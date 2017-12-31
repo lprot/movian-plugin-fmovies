@@ -49,16 +49,16 @@ function setPageHeader(page, title) {
 
 service.create(plugin.title, plugin.id + ":start", 'video', true, logo);
 
-settings.globalSettings('settings', plugin.title, logo, plugin.synopsis);
-settings.createString('baseURL', "Base URL without '/' at the end", 'https://fmovies.to', function(v) {
-    service.baseURL = v;
+var sg = settings.globalSettings('settings', plugin.title, logo, plugin.synopsis);
+sg.createString('baseUrl', "Base URL without '/' at the end", 'https://fmovies.to', function(v) {
+    service.baseUrl = v;
 });
 
 new page.Route(plugin.id + ":indexItem:(.*):(.*)", function(page, url, title) {
     setPageHeader(page, plugin.synopsis + ' / ' + unescape(title));
-    var item = http.request(service.baseURL + unescape(url), {
+    var item = http.request(service.baseUrl + unescape(url), {
          headers: {
-             referer: service.baseURL,
+             referer: service.baseUrl,
              'user-agent': UA
          }
     }).toString();
@@ -70,7 +70,7 @@ return;
     function loader() {
         if (!tryToSearch) return false;
         page.loading = true;
-        var doc = http.request(service.baseURL + url).toString();
+        var doc = http.request(service.baseUrl + url).toString();
 	page.loading = false;
         scraper(page, doc);
         var more = doc.match(/nbsp;<a href="([\s\S]*?)"><b>След.&nbsp/);
@@ -100,9 +100,9 @@ new page.Route(plugin.id + ":play:(.*):(.*)", function(page, url, title) {
     page.loading = true;
     page.type = 'video';
 
-    var doc = http.request(service.baseURL + unescape(url), {
+    var doc = http.request(service.baseUrl + unescape(url), {
          headers: {
-             referer: service.baseURL,
+             referer: service.baseUrl,
              'user-agent': UA
          }
     }).toString();
@@ -118,9 +118,9 @@ new page.Route(plugin.id + ":play:(.*):(.*)", function(page, url, title) {
     for (n in o)  
         s += r(a(hash + n, o[n]));
     showtime.print(showtime.JSONEncode(o) + ' _= ' + s);
-    doc = http.request(service.baseURL + '/ajax/episode/info?ts=' + ts + '&_=' + s + '&id=' + id + '&server=' + server, {
+    doc = http.request(service.baseUrl + '/ajax/episode/info?ts=' + ts + '&_=' + s + '&id=' + id + '&server=' + server, {
          headers: {
-             referer: service.baseURL + referer,
+             referer: service.baseUrl + referer,
              'user-agent': UA,
              'x-requested-with': 'XMLHttpRequest'
          }
@@ -130,7 +130,7 @@ new page.Route(plugin.id + ":play:(.*):(.*)", function(page, url, title) {
     showtime.print(target);
     doc = http.request(target, {
          headers: {
-             referer: service.baseURL + referer,
+             referer: service.baseUrl + referer,
              'user-agent': UA
          }
     }).toString();
@@ -171,9 +171,9 @@ function addSection(page, sectionName, widgetName) {
 new page.Route(plugin.id + ":start", function(page) {
     setPageHeader(page, plugin.synopsis);
     page.appendItem(plugin.id + ":search:", 'search', {
-        title: 'Search in ' + service.baseURL
+        title: 'Search in ' + service.baseUrl
     });
-    doc = http.request(service.baseURL, {
+    doc = http.request(service.baseUrl, {
         headers: {
             'User-Agent': UA
         }
@@ -210,7 +210,7 @@ function search(page, query) {
     function loader() {
         if (!tryToSearch) return false;
         page.loading = true;
-	var doc = http.request(service.baseURL + '/search?keyword=' + query.replace(/\s/g, '\+') + '&page=' + fromPage).toString();
+	var doc = http.request(service.baseUrl + '/search?keyword=' + query.replace(/\s/g, '\+') + '&page=' + fromPage).toString();
 	page.loading = false;
         scraper(page, doc);
 	if (!doc.match(/<div class="item"/)) return tryToSearch = false;
