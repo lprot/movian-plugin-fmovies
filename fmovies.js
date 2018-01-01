@@ -56,7 +56,7 @@ settings.createBool('debug', 'Enable debug logging',  false, function(v) {
     service.debug = v;
 });
 
-new page.Route(plugin.id + ":indexItem:(.*):(.*)", function(page, url, title) {
+new page.Route(plugin.id + ":indexItem:(.*):(.*):(.*)", function(page, url, title, series) {
     setPageHeader(page, plugin.synopsis + ' / ' + unescape(title));
     page.model.contents = 'list';
     page.loading = true;
@@ -78,8 +78,8 @@ new page.Route(plugin.id + ":indexItem:(.*):(.*)", function(page, url, title) {
         var match2 = re2.exec(match[3]);
         while (match2) {
             //ts, id, server, referer, title
-            page.appendItem(plugin.id + ':play:' + ts + ':' + match2[1] + ':' + match[1] + ':' + match2[2] + ':' + title, 'video', {
-                title: new showtime.RichText(match2[3] + coloredStr(' (' + match[2].trim() + ')', orange))
+            page.appendItem(plugin.id + ':play:' + ts + ':' + match2[1] + ':' + match[1] + ':' + match2[2] + ':' + title + (+series ? ' - Episode ' + match2[3] : ''), 'video', {
+                title: new showtime.RichText((+series ? 'Episode ' : '') + match2[3] + coloredStr(' (' + match[2].trim() + ')', orange))
             });
             match2 = re2.exec(match[3]);
         }              
@@ -198,21 +198,26 @@ new page.Route(plugin.id + ":play:(.*):(.*):(.*):(.*):(.*)", function(page, ts, 
         req.setHeader('User-Agent', UA);
     });
 
-    page.source = "videoparams:" + showtime.JSONEncode({
+    var videoparams = {
         title: unescape(title),
         imdbid: imdbid,
         canonicalUrl: plugin.id + ':play:' + ts + ':' + id + ':' + server + ':' + referer + ':' + title,
         sources: [{
             url: 'hls:' + lnk
         }],
-        subtitles: [{
+        no_fs_scan: true,
+        subtitles: []
+    };
+    if (subtitle) { 
+        videoparams.subtitles.push({
             url: subtitle,
             language: 'eng',
             source: service.baseURL,
             title: unescape(title)
-        }],
-        no_fs_scan: true
-    });
+        });
+    };
+
+    page.source = "videoparams:" + showtime.JSONEncode(videoparams);
     page.loading = false;
 });
 
@@ -256,12 +261,14 @@ function scraper(page, blob) {
     var re = /<div class="item" data-tip="([\s\S]*?)"> <div class="([\s\S]*?)<\/div>[\s\S]*?<img src="([\s\S]*?)"[\s\S]*?<a class="name" href="([\s\S]*?)">([\s\S]*?)<\/a>/g;
     var match = re.exec(blob), first = true;
     while (match) {
-        var status = match[2].match(/<span>([\s\S]*?)<\/span>/); 
-        if (status) 
+        var status = match[2].match(/<span>([\s\S]*?)<\/span>/);
+        var series = '0'; 
+        if (status) {
             status = 'Eps ' + status[1];
-        else 
+            series = '1';
+        } else 
             status = match[2].replace(/quality">/, '');
-        page.appendItem(plugin.id + ':indexItem:' + escape(match[4]) + ':' + escape(match[5]), 'video', {
+        page.appendItem(plugin.id + ':indexItem:' + escape(match[4]) + ':' + escape(match[5]) + ':' + series, 'video', {
             title: new showtime.RichText(coloredStr(status, orange) + ' ' + match[5]),
             icon: showtime.entityDecode(match[3])
         });
