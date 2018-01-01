@@ -22,9 +22,8 @@ var service = require('showtime/service');
 var settings = require('showtime/settings');
 var http = require('showtime/http');
 var io = require('native/io');
-
 var plugin = JSON.parse(Plugin.manifest);
-var logo = Plugin.path + "logo.png";
+var logo = Plugin.path + plugin.icon;
 var blue = '6699CC', orange = 'FFA500', red = 'EE0000', green = '008B45';
 var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.108 Safari/537.36';
 
@@ -56,30 +55,36 @@ settings.createString('baseURL', "Base URL without '/' at the end", 'https://fmo
 
 new page.Route(plugin.id + ":indexItem:(.*):(.*)", function(page, url, title) {
     setPageHeader(page, plugin.synopsis + ' / ' + unescape(title));
-    var item = http.request(service.baseURL + unescape(url), {
+    page.model.contents = 'list';
+    page.loading = true;
+    var doc = http.request(service.baseURL + unescape(url), {
          headers: {
              referer: service.baseURL,
              'user-agent': UA
          }
     }).toString();
 
-return;
-    page.loading = true;
-    page.entries = 0;
-    var tryToSearch = true;
-    function loader() {
-        if (!tryToSearch) return false;
-        page.loading = true;
-        var doc = http.request(service.baseURL + url).toString();
-	page.loading = false;
-        scraper(page, doc);
-        var more = doc.match(/nbsp;<a href="([\s\S]*?)"><b>След.&nbsp/);
-	if (!more) return tryToSearch = false;
-        url = more[1];
-        return true;
-    };
-    loader();
-    page.paginator = loader;
+    var ts = doc.match(/data-ts="([\s\S]*?)">/)[1];
+
+    // 1-server, 2-server name, 3-episodes blob
+    var re = /<div class="server row"[\s\S]*?data-id="([\s\S]*?)"[\s\S]*?<\/i>([\s\S]*?)<\/label>[\s\S]*?<ul class="episodes([\s\S]*?)<\/ul>/g;    
+showtime.print('1');
+    var match = re.exec(doc);
+    while (match) {
+showtime.print('1');
+        // 1-id, 2-referer, 3-title
+        var re2 = /data-id="([\s\S]*?)"[\s\S]*?href="([\s\S]*?)">([\s\S]*?)<\/a>/g;
+        var match2 = re2.exec(match[3]);
+        while (match2) {
+            //ts, id, server, referer, title
+            page.appendItem(plugin.id + ':play:' + ts + ':' + match2[1] + ':' + match[1] + ':' + match2[2] + ':' + title, 'video', {
+                title: new showtime.RichText(match2[3] + coloredStr(' (' + match[2].trim() + ')', orange))
+            });
+            match2 = re2.exec(match[3]);
+        }              
+        match = re.exec(doc);
+    }        
+    page.loading = false;
 });
 
 function r(t) {
@@ -96,21 +101,10 @@ function a(t, i) {
     return e.toString(16)
 }
 
-new page.Route(plugin.id + ":play:(.*):(.*)", function(page, url, title) {
+new page.Route(plugin.id + ":play:(.*):(.*):(.*):(.*):(.*)", function(page, ts, id, server, referer, title) {
     page.loading = true;
     page.type = 'video';
 
-    var doc = http.request(service.baseURL + unescape(url), {
-         headers: {
-             referer: service.baseURL,
-             'user-agent': UA
-         }
-    }).toString();
-    var ts = doc.match(/data-ts="([\s\S]*?)">/)[1];
-    var srvRow = doc.match(/<div class="server[\s\S]*?data-id="([\s\S]*?)">[\s\S]*?data-id="([\s\S]*?)" href="([\s\S]*?)">/);
-    var server = srvRow[1];
-    var id = srvRow[2];
-    var referer = srvRow[3];
     var o = {'ts': ts, 'id': id, 'server': server};
 
     var hash = "iQDWcsGqN";
@@ -165,6 +159,12 @@ function addSection(page, sectionName, widgetName) {
             title: sectionName
         });
         scraper(page, blob[1]);
+        var more = blob[1].match(/<a class="more" href="([\s\S]*?)">/);
+        if (more)
+            page.appendItem(plugin.id + ':loadFromURL:' + escape(more[1]) + ':' + escape(sectionName), 'video', {
+                title: 'View all ►',
+                icon: 'https://www.stovekraft.com/images/pigeon/view_all_pigeon.jpg'
+            });
     }
 }
 
@@ -194,7 +194,7 @@ function scraper(page, blob) {
             status = 'Eps ' + status[1];
         else 
             status = match[2].replace(/quality">/, '');
-        page.appendItem(plugin.id + ':play:' + escape(match[4]) + ':' + escape(match[5]), 'video', {
+        page.appendItem(plugin.id + ':indexItem:' + escape(match[4]) + ':' + escape(match[5]), 'video', {
             title: new showtime.RichText(coloredStr(status, orange) + ' ' + match[5]),
             icon: showtime.entityDecode(match[3])
         });
@@ -203,17 +203,21 @@ function scraper(page, blob) {
     }        
 }
 
-function search(page, query) {
+function loadFromURL(page, url) {
     page.entries = 0;
-    var fromPage = 0, tryToSearch = true;
+    var fromPage = 1, tryToSearch = true;
 
     function loader() {
         if (!tryToSearch) return false;
         page.loading = true;
-	var doc = http.request(service.baseURL + '/search?keyword=' + query.replace(/\s/g, '\+') + '&page=' + fromPage).toString();
+	var doc = http.request(url + fromPage, {
+            headers: {
+                'User-Agent': UA
+            }
+        }).toString();
+        if (!doc.match(/<div class="item"/)) return tryToSearch = false;
 	page.loading = false;
         scraper(page, doc);
-	if (!doc.match(/<div class="item"/)) return tryToSearch = false;
         fromPage++;
 	return true;
     };
@@ -221,11 +225,16 @@ function search(page, query) {
     page.paginator = loader;
 }
 
+new page.Route(plugin.id + ":loadFromURL:(.*):(.*)", function(page, url, title) {
+    setPageHeader(page, unescape(title));
+    loadFromURL(page, unescape(url) + '?page=');
+});
+
 new page.Route(plugin.id + ":search:(.*)", function(page, query) {
     setPageHeader(page, plugin.synopsis + ' / ' + query);
-    search(page, query);
+    loadFromURL(page, service.baseURL + '/search?keyword=' + query.replace(/\s/g, '\+') + '&page=');
 });
 
 page.Searcher(plugin.id, logo, function(page, query) {
-    search(page, query);
+    loadFromURL(page, service.baseURL + '/search?keyword=' + query.replace(/\s/g, '\+') + '&page=');
 });
