@@ -52,6 +52,9 @@ settings.globalSettings(plugin.id, plugin.title, logo, plugin.synopsis);
 settings.createString('baseURL', "Base URL without '/' at the end", 'https://fmovies.to', function(v) {
     service.baseURL = v;
 });
+settings.createBool('debug', 'Enable debug logging',  false, function(v) {
+    service.debug = v;
+});
 
 new page.Route(plugin.id + ":indexItem:(.*):(.*)", function(page, url, title) {
     setPageHeader(page, plugin.synopsis + ' / ' + unescape(title));
@@ -68,10 +71,8 @@ new page.Route(plugin.id + ":indexItem:(.*):(.*)", function(page, url, title) {
 
     // 1-server, 2-server name, 3-episodes blob
     var re = /<div class="server row"[\s\S]*?data-id="([\s\S]*?)"[\s\S]*?<\/i>([\s\S]*?)<\/label>[\s\S]*?<ul class="episodes([\s\S]*?)<\/ul>/g;    
-showtime.print('1');
     var match = re.exec(doc);
     while (match) {
-showtime.print('1');
         // 1-id, 2-referer, 3-title
         var re2 = /data-id="([\s\S]*?)"[\s\S]*?href="([\s\S]*?)">([\s\S]*?)<\/a>/g;
         var match2 = re2.exec(match[3]);
@@ -86,6 +87,60 @@ showtime.print('1');
     }        
     page.loading = false;
 });
+
+function log(str) {
+    if (service.debug) showtime.print(str);
+}
+
+// Search IMDB ID by title
+function getIMDBid(title) {
+    var imdbid = null;
+    var title = showtime.entityDecode(unescape(title)).toString();
+    log('Splitting the title for IMDB ID request: ' + title);
+    var splittedTitle = title.split('|');
+    if (splittedTitle.length == 1)
+        splittedTitle = title.split('/');
+    if (splittedTitle.length == 1)
+        splittedTitle = title.split('-');
+    log('Splitted title is: ' + splittedTitle);
+    if (splittedTitle[1]) { // first we look by original title
+        var cleanTitle = splittedTitle[1];//.trim();
+        var match = cleanTitle.match(/[^\(|\[|\.]*/);
+        if (match)
+            cleanTitle = match;
+        log('Trying to get IMDB ID for: ' + cleanTitle);
+        resp = showtime.httpReq('http://www.imdb.com/find?ref_=nv_sr_fn&q=' + encodeURIComponent(cleanTitle)).toString();
+        imdbid = resp.match(/class="findResult[\s\S]*?<a href="\/title\/(tt\d+)\//);
+        if (!imdbid && cleanTitle.indexOf('/') != -1) {
+            splittedTitle2 = cleanTitle.split('/');
+            for (var i in splittedTitle2) {
+                log('Trying to get IMDB ID (1st attempt) for: ' + splittedTitle2[i].trim());
+                resp = showtime.httpReq('http://www.imdb.com/find?ref_=nv_sr_fn&q=' + encodeURIComponent(splittedTitle2[i].trim())).toString();
+                imdbid = resp.match(/class="findResult[\s\S]*?<a href="\/title\/(tt\d+)\//);
+                if (imdbid) break;
+            }
+        }
+    }
+    if (!imdbid)
+        for (var i in splittedTitle) {
+            if (i == 1) continue; // we already checked that
+            var cleanTitle = splittedTitle[i].trim();
+            var match = cleanTitle.match(/[^\(|\[|\.]*/);
+            if (match)
+                cleanTitle = match;
+            log('Trying to get IMDB ID (2nd attempt) for: ' + cleanTitle);
+            resp = showtime.httpReq('http://www.imdb.com/find?ref_=nv_sr_fn&q=' + encodeURIComponent(cleanTitle)).toString();
+            imdbid = resp.match(/class="findResult[\s\S]*?<a href="\/title\/(tt\d+)\//);
+            if (imdbid) break;
+        }
+
+    if (imdbid) {
+        log('Got following IMDB ID: ' + imdbid[1]);
+        return imdbid[1];
+    }
+    log('Cannot get IMDB ID :(');
+    return imdbid;
+};
 
 function r(t) {
     var i, n = 0;
@@ -111,7 +166,7 @@ new page.Route(plugin.id + ":play:(.*):(.*):(.*):(.*):(.*)", function(page, ts, 
     var s = r(hash);
     for (n in o)  
         s += r(a(hash + n, o[n]));
-    showtime.print(showtime.JSONEncode(o) + ' _= ' + s);
+    log(showtime.JSONEncode(o) + ' _= ' + s);
     doc = http.request(service.baseURL + '/ajax/episode/info?ts=' + ts + '&_=' + s + '&id=' + id + '&server=' + server, {
          headers: {
              referer: service.baseURL + referer,
@@ -119,18 +174,22 @@ new page.Route(plugin.id + ":play:(.*):(.*):(.*):(.*):(.*)", function(page, ts, 
              'x-requested-with': 'XMLHttpRequest'
          }
     }).toString();
-
-    var target = showtime.JSONDecode(doc).target + '&autostart=true';
-    showtime.print(target);
+    var json = showtime.JSONDecode(doc);
+    var target = json.target + '&autostart=true';
+    log(target);
+    var subtitle = json.subtitle;
+    log(subtitle);
     doc = http.request(target, {
          headers: {
              referer: service.baseURL + referer,
              'user-agent': UA
          }
     }).toString();
-    showtime.print(doc);
+    log(doc);
     var lnk = doc.match(/"file":"([\s\S]*?)"/)[1];
     var host = lnk.replace('http://','').replace('https://','').split(/[/?#]/)[0];
+    
+    var imdbid = getIMDBid(title);
 
     io.httpInspectorCreate('.*' + host.replace(/\./g, '\\.') + '.*', function(req) {
         req.setHeader('Host', req.url.replace('http://','').replace('https://','').split(/[/?#]/)[0]);
@@ -139,14 +198,22 @@ new page.Route(plugin.id + ":play:(.*):(.*):(.*):(.*):(.*)", function(page, ts, 
         req.setHeader('User-Agent', UA);
     });
 
-       page.source = "videoparams:" + showtime.JSONEncode({
-            title: unescape(title),
-            sources: [{
-                url: 'hls:' + lnk
-            }],
-            no_fs_scan: true
-        });
-        page.loading = false;
+    page.source = "videoparams:" + showtime.JSONEncode({
+        title: unescape(title),
+        imdbid: imdbid,
+        canonicalUrl: plugin.id + ':play:' + ts + ':' + id + ':' + server + ':' + referer + ':' + title,
+        sources: [{
+            url: 'hls:' + lnk
+        }],
+        subtitles: [{
+            url: subtitle,
+            language: 'eng',
+            source: service.baseURL,
+            title: unescape(title)
+        }],
+        no_fs_scan: true
+    });
+    page.loading = false;
 });
 
 var doc = 0;
