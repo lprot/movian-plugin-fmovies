@@ -56,10 +56,33 @@ settings.createBool('debug', 'Enable debug logging',  false, function(v) {
     service.debug = v;
 });
 
+function trim(s) {
+    if (s) return s.replace(/(\r\n|\n|\r)/gm, "").replace(/(^\s*)|(\s*$)/gi, "").replace(/[ ]{2,}/gi, " ").replace(/\t/g,'');
+    return '';
+}
+
+function getTheList(blob) {
+    var tmp = '', first = 0;
+    if (blob) {
+        re = /<a href=[\s\S]*?">([\s\S]*?)<\/a>/g;
+        var match = re.exec(blob);
+        while (match) {
+            if (!first) {
+                tmp += trim(match[1].replace(/>/g, ''));
+                first++;
+            } else
+                tmp += ', ' + trim(match[1].replace(/>/g, ''));
+            match = re.exec(blob);
+        }
+    }
+    return tmp;
+}
+
 new page.Route(plugin.id + ":indexItem:(.*):(.*):(.*)", function(page, url, title, series) {
     setPageHeader(page, plugin.synopsis + ' / ' + unescape(title));
     page.model.contents = 'list';
     page.loading = true;
+    log('Indexing: ' + service.baseURL + unescape(url));
     var doc = http.request(service.baseURL + unescape(url), {
          headers: {
              referer: service.baseURL,
@@ -67,6 +90,24 @@ new page.Route(plugin.id + ":indexItem:(.*):(.*):(.*)", function(page, url, titl
          }
     }).toString();
 
+    // 1-icon, 2-imdb rating, 3-duration, 4-description, 5-genres blob, 6-actors blob, 
+    // 7-director, 8-country blob, 9-rating, 10-views, 11-released, 12-quality
+    var match = doc.match(/<div id="info"[\s\S]*?<img src="([\s\S]*?)"[\s\S]*?class="imdb">[\s\S]*?<b>([\s\S]*?)<\/b>[\s\S]*?fa-clock-o">[\s\S]*?<b>([\s\S]*?)min[\s\S]*?class="desc">([\s\S]*?)<\/div>[\s\S]*?<dd>([\s\S]*?)<\/dd>[\s\S]*?<dd>([\s\S]*?)<\/dd>[\s\S]*?<dd>([\s\S]*?)<\/dd>[\s\S]*?<dd>([\s\S]*?)<\/dd>[\s\S]*?class="rating">[\s\S]*?<span>([\s\S]*?)<\/span>[\s\S]*?<span>([\s\S]*?)<\/span>[\s\S]*?<dd>([\s\S]*?)<\/dd>[\s\S]*?class="quality">([\s\S]*?)<\/span>/);
+
+    page.appendPassiveItem('video', '', {
+        title: unescape(title),
+        icon: showtime.entityDecode(match[1]),
+        duration: trim(match[3]) != 'na' ? match[3] * 60 : 0,
+        rating: match[9] * 10,
+        genre: getTheList(match[5]),
+        year: +match[11].substring(0, 4),
+        description: new showtime.RichText(coloredStr('Released: ', orange) + trim(match[11]) +
+            coloredStr(' Views: ', orange) + trim(match[10]) +
+            coloredStr(' Country: ', orange) + getTheList(match[8]) +
+            (trim(match[7]) != '...' ? coloredStr(' Director: ', orange) + trim(match[7]) : '') +
+            coloredStr(' Actors: ', orange) + getTheList(match[6]) + 
+            coloredStr('<br>Description: ', orange) + match[4])
+    });
     var ts = doc.match(/data-ts="([\s\S]*?)">/)[1];
 
     // 1-server, 2-server name, 3-episodes blob
@@ -193,7 +234,7 @@ function getOpenLoadStream(doc) {
     var match = doc.match(/<span style="" id="([\s\S]*?)">([\s\S]*?)<\/span>/);
     window.z = match[1];
     var encoded = match[2];
-    var decoder = doc.match(/\('_'\);([\s\S]*?)\uFF9F\u03C9\uFF9F/)[1].replace(/\|\|\!/g, '&&');
+    var decoder = doc.match(/\('_'\);([\s\S]*?)\uFF9F\u03C9\uFF9F/)[1].replace(/\|\|\!/g, '&&').replace(/window\.\$/, '$');
     eval(decoder);
     return decryptedUrl;
 }
