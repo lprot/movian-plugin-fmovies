@@ -93,7 +93,6 @@ new page.Route(plugin.id + ":indexItem:(.*):(.*):(.*)", function(page, url, titl
     // 1-icon, 2-imdb rating, 3-duration, 4-description, 5-genres blob, 6-actors blob, 
     // 7-director, 8-country blob, 9-rating, 10-views, 11-released, 12-quality
     var match = doc.match(/<div id="info"[\s\S]*?<img src="([\s\S]*?)"[\s\S]*?class="imdb">[\s\S]*?<b>([\s\S]*?)<\/b>[\s\S]*?fa-clock-o">[\s\S]*?<b>([\s\S]*?)min[\s\S]*?class="desc">([\s\S]*?)<\/div>[\s\S]*?<dd>([\s\S]*?)<\/dd>[\s\S]*?<dd>([\s\S]*?)<\/dd>[\s\S]*?<dd>([\s\S]*?)<\/dd>[\s\S]*?<dd>([\s\S]*?)<\/dd>[\s\S]*?class="rating">[\s\S]*?<span>([\s\S]*?)<\/span>[\s\S]*?<span>([\s\S]*?)<\/span>[\s\S]*?<dd>([\s\S]*?)<\/dd>[\s\S]*?class="quality">([\s\S]*?)<\/span>/);
-
     page.appendPassiveItem('video', '', {
         title: unescape(title),
         icon: showtime.entityDecode(match[1]),
@@ -105,8 +104,8 @@ new page.Route(plugin.id + ":indexItem:(.*):(.*):(.*)", function(page, url, titl
             coloredStr(' Views: ', orange) + trim(match[10]) +
             coloredStr(' Country: ', orange) + getTheList(match[8]) +
             (trim(match[7]) != '...' ? coloredStr(' Director: ', orange) + trim(match[7]) : '') +
-            coloredStr(' Actors: ', orange) + getTheList(match[6]) + 
-            coloredStr('<br>Description: ', orange) + match[4])
+            (trim(getTheList(match[6])) ? coloredStr(' Actors: ', orange) + getTheList(match[6]) : '') +
+            (trim(match[4]) ? coloredStr('<br>Description: ', orange) + trim(match[4]).replace(/<p>/g, '') : ''))
     });
     var ts = doc.match(/data-ts="([\s\S]*?)">/)[1];
 
