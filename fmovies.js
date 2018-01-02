@@ -43,7 +43,7 @@ function setPageHeader(page, title) {
     page.model.contents = 'grid';
     page.type = "directory";
     page.contents = "items";
-    page.loading = false;
+    page.loading = true;
 }
 
 service.create(plugin.title, plugin.id + ":start", 'video', true, logo);
@@ -156,6 +156,48 @@ function a(t, i) {
     return e.toString(16)
 }
 
+function getOpenLoadStream(doc) {
+    var window = this, navigator = {}, jQuery;
+    var document = {};
+    document.getElementById  = '[native code';
+    document.documentElement = {};
+    document.documentElement.getAttribute = function() { return 0 };
+    var decryptedUrl = 0;
+
+    var $ = function(selector) {
+        log("$(" + showtime.JSONEncode(selector) + ") called");
+        if (selector == '#streamuri') {
+            return {
+                text: function(result) {
+                    log("$('" + selector + "').text() called. Result: " + result);
+                    decryptedUrl = 'https://openload.co/stream/' + result + '?mime=true';
+                }
+            }
+        } else if (selector == '#' + window.z) {
+            return {
+                text: function() {
+                    return encoded;
+                }
+            }
+        } else if (selector == document) {
+            return {
+                ready: function(func) {
+                    func();
+                }
+            }
+        } else 
+            console.log('unknown selector is called: ' + selector);
+    }
+
+    // 1-id, 2-encoded
+    var match = doc.match(/<span style="" id="([\s\S]*?)">([\s\S]*?)<\/span>/);
+    window.z = match[1];
+    var encoded = match[2];
+    var decoder = doc.match(/\('_'\);([\s\S]*?)\uFF9F\u03C9\uFF9F/)[1].replace(/\|\|\!/g, '&&');
+    eval(decoder);
+    return decryptedUrl;
+}
+
 new page.Route(plugin.id + ":play:(.*):(.*):(.*):(.*):(.*)", function(page, ts, id, server, referer, title) {
     page.loading = true;
     page.type = 'video';
@@ -186,24 +228,44 @@ new page.Route(plugin.id + ":play:(.*):(.*):(.*):(.*):(.*)", function(page, ts, 
          }
     }).toString();
     log(doc);
-    var lnk = doc.match(/"file":"([\s\S]*?)"/)[1];
-    var host = lnk.replace('http://','').replace('https://','').split(/[/?#]/)[0];
-    
-    var imdbid = getIMDBid(title);
 
-    io.httpInspectorCreate('.*' + host.replace(/\./g, '\\.') + '.*', function(req) {
-        req.setHeader('Host', req.url.replace('http://','').replace('https://','').split(/[/?#]/)[0]);
-        req.setHeader('Origin', 'https://mcloud.to');
-        req.setHeader('Referer', target);
-        req.setHeader('User-Agent', UA);
-    });
+    mimetype = 'video/quicktime';
+    var lnk = doc.match(/"file":"([\s\S]*?)"/);
+    if (lnk) {
+        var host = lnk[1].replace('http://','').replace('https://','').split(/[/?#]/)[0];
+        lnk = 'hls:' + lnk[1];
+        mimetype = 'application/vnd.apple.mpegurl'
+        io.httpInspectorCreate('.*' + host.replace(/\./g, '\\.') + '.*', function(req) {
+            req.setHeader('Host', req.url.replace('http://','').replace('https://','').split(/[/?#]/)[0]);
+            req.setHeader('Origin', 'https://mcloud.to');
+            req.setHeader('Referer', target);
+            req.setHeader('User-Agent', UA);
+        });
+    } 
+    if (!lnk) {
+        lnk = getOpenLoadStream(doc);
+        var host = lnk.replace('http://','').replace('https://','').split(/[/?#]/)[0];
+        io.httpInspectorCreate('.*' + host.replace(/\./g, '\\.') + '.*', function(req) {
+            req.setHeader('Referer', target);
+            req.setHeader('User-Agent', UA);
+        });
+        io.httpInspectorCreate('.*oloadcdn\\.net.*', function(req) {
+            req.setHeader('Host', req.url.replace('http://','').replace('https://','').split(/[/?#]/)[0]);
+            req.setHeader('Origin', 'https://openload.co');
+            req.setHeader('Referer', target);
+            req.setHeader('User-Agent', UA);
+        });
+    }
+
+    var imdbid = getIMDBid(title);
 
     var videoparams = {
         title: unescape(title),
         imdbid: imdbid,
         canonicalUrl: plugin.id + ':play:' + ts + ':' + id + ':' + server + ':' + referer + ':' + title,
         sources: [{
-            url: 'hls:' + lnk
+            url: lnk,
+            mimetype: mimetype
         }],
         no_fs_scan: true,
         subtitles: []
@@ -216,7 +278,6 @@ new page.Route(plugin.id + ":play:(.*):(.*):(.*):(.*):(.*)", function(page, ts, 
             title: unescape(title)
         });
     };
-
     page.source = "videoparams:" + showtime.JSONEncode(videoparams);
     page.loading = false;
 });
@@ -254,6 +315,7 @@ new page.Route(plugin.id + ":start", function(page) {
     addSection(page, 'LATEST MOVIES', 'latest-movies');
     addSection(page, 'LATEST TV-SERIES', 'latest-series');
     addSection(page, 'REQUESTED MOVIES', 'requested');
+    page.loading = false;
 });
 
 function scraper(page, blob) {
