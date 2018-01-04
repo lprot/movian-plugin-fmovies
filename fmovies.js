@@ -206,7 +206,7 @@ function getOpenLoadStream(doc) {
 
     var $ = function(selector) {
         log("$(" + showtime.JSONEncode(selector) + ") called");
-        if (selector == '#streamuri') {
+        if (selector.toString().match(/#streamur/)) {
             return {
                 text: function(result) {
                     log("$('" + selector + "').text() called. Result: " + result);
