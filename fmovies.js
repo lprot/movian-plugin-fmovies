@@ -24,12 +24,10 @@ var http = require('showtime/http');
 var io = require('native/io');
 var plugin = JSON.parse(Plugin.manifest);
 var logo = Plugin.path + plugin.icon;
-var blue = '6699CC', orange = 'FFA500', red = 'EE0000', green = '008B45';
+
 var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.108 Safari/537.36';
 
-function colorStr(str, color) {
-    return '<font color="' + color + '"> (' + str + ')</font>';
-}
+var blue = '6699CC', orange = 'FFA500', red = 'EE0000', green = '008B45';
 
 function coloredStr(str, color) {
     return '<font color="' + color + '">' + str + '</font>';
@@ -49,7 +47,7 @@ function setPageHeader(page, title) {
 service.create(plugin.title, plugin.id + ":start", 'video', true, logo);
 
 settings.globalSettings(plugin.id, plugin.title, logo, plugin.synopsis);
-settings.createString('baseURL', "Base URL without '/' at the end", 'https://fmovies.to', function(v) {
+settings.createString('baseURL', "Base URL without '/' at the end", 'https://fmovies.is', function(v) {
     service.baseURL = v;
 });
 settings.createBool('debug', 'Enable debug logging',  false, function(v) {
@@ -129,7 +127,7 @@ new page.Route(plugin.id + ":indexItem:(.*):(.*):(.*)", function(page, url, titl
 });
 
 function log(str) {
-    if (service.debug) showtime.print(str);
+    if (service.debug) showtime.trace(str);
 }
 
 // Search IMDB ID by title
@@ -256,6 +254,7 @@ new page.Route(plugin.id + ":play:(.*):(.*):(.*):(.*):(.*)", function(page, ts, 
              'x-requested-with': 'XMLHttpRequest'
          }
     }).toString();
+    log(doc);
     var json = showtime.JSONDecode(doc);
     var target = json.target + '&autostart=true';
     log(target);
