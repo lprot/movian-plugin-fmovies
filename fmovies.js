@@ -22,13 +22,21 @@ var service = require('showtime/service');
 var settings = require('showtime/settings');
 var http = require('showtime/http');
 var io = require('native/io');
+var string = require('native/string');
 var plugin = JSON.parse(Plugin.manifest);
 var logo = Plugin.path + plugin.icon;
+
+RichText = function(x) {
+    this.str = x.toString();
+}
+
+RichText.prototype.toRichString = function(x) {
+    return this.str;
+}
 
 var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.108 Safari/537.36';
 
 var blue = '6699CC', orange = 'FFA500', red = 'EE0000', green = '008B45';
-
 function coloredStr(str, color) {
     return '<font color="' + color + '">' + str + '</font>';
 }
@@ -93,12 +101,12 @@ new page.Route(plugin.id + ":indexItem:(.*):(.*):(.*)", function(page, url, titl
     var match = doc.match(/<div id="info"[\s\S]*?<img src="([\s\S]*?)"[\s\S]*?class="imdb">[\s\S]*?<b>([\s\S]*?)<\/b>[\s\S]*?fa-clock-o">[\s\S]*?<b>([\s\S]*?)min[\s\S]*?class="desc">([\s\S]*?)<\/div>[\s\S]*?<dd>([\s\S]*?)<\/dd>[\s\S]*?<dd>([\s\S]*?)<\/dd>[\s\S]*?<dd>([\s\S]*?)<\/dd>[\s\S]*?<dd>([\s\S]*?)<\/dd>[\s\S]*?class="rating">[\s\S]*?<span>([\s\S]*?)<\/span>[\s\S]*?<span>([\s\S]*?)<\/span>[\s\S]*?<dd>([\s\S]*?)<\/dd>[\s\S]*?class="quality">([\s\S]*?)<\/span>/);
     page.appendPassiveItem('video', '', {
         title: unescape(title),
-        icon: showtime.entityDecode(match[1]),
+        icon: string.entityDecode(match[1]),
         duration: trim(match[3]) != 'na' ? match[3] * 60 : 0,
         rating: match[9] * 10,
         genre: getTheList(match[5]),
         year: +match[11].substring(0, 4),
-        description: new showtime.RichText(coloredStr('Released: ', orange) + trim(match[11]) +
+        description: new RichText(coloredStr('Released: ', orange) + trim(match[11]) +
             coloredStr(' Views: ', orange) + trim(match[10]) +
             coloredStr(' Country: ', orange) + getTheList(match[8]) +
             (trim(match[7]) != '...' ? coloredStr(' Director: ', orange) + trim(match[7]) : '') +
@@ -117,7 +125,7 @@ new page.Route(plugin.id + ":indexItem:(.*):(.*):(.*)", function(page, url, titl
         while (match2) {
             //ts, id, server, referer, title
             page.appendItem(plugin.id + ':play:' + ts + ':' + match2[1] + ':' + match[1] + ':' + match2[2] + ':' + title + (+series ? ' - Episode ' + match2[3] : ''), 'video', {
-                title: new showtime.RichText((+series ? 'Episode ' : '') + match2[3] + coloredStr(' (' + match[2].trim() + ')', orange))
+                title: new RichText((+series ? 'Episode ' : '') + match2[3] + coloredStr(' (' + match[2].trim() + ')', orange))
             });
             match2 = re2.exec(match[3]);
         }              
@@ -127,13 +135,13 @@ new page.Route(plugin.id + ":indexItem:(.*):(.*):(.*)", function(page, url, titl
 });
 
 function log(str) {
-    if (service.debug) showtime.trace(str);
+    if (service.debug) console.log(str);
 }
 
 // Search IMDB ID by title
 function getIMDBid(title) {
     var imdbid = null;
-    var title = showtime.entityDecode(unescape(title)).toString();
+    var title = string.entityDecode(unescape(title)).toString();
     log('Splitting the title for IMDB ID request: ' + title);
     var splittedTitle = title.split('|');
     if (splittedTitle.length == 1)
@@ -147,13 +155,13 @@ function getIMDBid(title) {
         if (match)
             cleanTitle = match;
         log('Trying to get IMDB ID for: ' + cleanTitle);
-        resp = showtime.httpReq('http://www.imdb.com/find?ref_=nv_sr_fn&q=' + encodeURIComponent(cleanTitle)).toString();
+        resp = http.request('http://www.imdb.com/find?ref_=nv_sr_fn&q=' + encodeURIComponent(cleanTitle)).toString();
         imdbid = resp.match(/class="findResult[\s\S]*?<a href="\/title\/(tt\d+)\//);
         if (!imdbid && cleanTitle.indexOf('/') != -1) {
             splittedTitle2 = cleanTitle.split('/');
             for (var i in splittedTitle2) {
                 log('Trying to get IMDB ID (1st attempt) for: ' + splittedTitle2[i].trim());
-                resp = showtime.httpReq('http://www.imdb.com/find?ref_=nv_sr_fn&q=' + encodeURIComponent(splittedTitle2[i].trim())).toString();
+                resp = http.request('http://www.imdb.com/find?ref_=nv_sr_fn&q=' + encodeURIComponent(splittedTitle2[i].trim())).toString();
                 imdbid = resp.match(/class="findResult[\s\S]*?<a href="\/title\/(tt\d+)\//);
                 if (imdbid) break;
             }
@@ -167,7 +175,7 @@ function getIMDBid(title) {
             if (match)
                 cleanTitle = match;
             log('Trying to get IMDB ID (2nd attempt) for: ' + cleanTitle);
-            resp = showtime.httpReq('http://www.imdb.com/find?ref_=nv_sr_fn&q=' + encodeURIComponent(cleanTitle)).toString();
+            resp = http.request('http://www.imdb.com/find?ref_=nv_sr_fn&q=' + encodeURIComponent(cleanTitle)).toString();
             imdbid = resp.match(/class="findResult[\s\S]*?<a href="\/title\/(tt\d+)\//);
             if (imdbid) break;
         }
@@ -203,7 +211,7 @@ function getOpenLoadStream(doc) {
     var decryptedUrl = 0;
 
     var $ = function(selector) {
-        log("$(" + showtime.JSONEncode(selector) + ") called");
+        log("$(" + JSON.stringify(selector) + ") called");
         if (selector.toString().match(/#streamur/)) {
             return {
                 text: function(result) {
@@ -246,7 +254,7 @@ new page.Route(plugin.id + ":play:(.*):(.*):(.*):(.*):(.*)", function(page, ts, 
     var s = r(hash);
     for (n in o)  
         s += r(a(hash + n, o[n]));
-    log(showtime.JSONEncode(o) + ' _= ' + s);
+    log(JSON.stringify(o) + ' _= ' + s);
     doc = http.request(service.baseURL + '/ajax/episode/info?ts=' + ts + '&_=' + s + '&id=' + id + '&server=' + server, {
          headers: {
              referer: service.baseURL + referer,
@@ -255,7 +263,7 @@ new page.Route(plugin.id + ":play:(.*):(.*):(.*):(.*):(.*)", function(page, ts, 
          }
     }).toString();
     log(doc);
-    var json = showtime.JSONDecode(doc);
+    var json = JSON.parse(doc);
     var target = json.target + '&autostart=true';
     log(target);
     var subtitle = json.subtitle;
@@ -317,7 +325,7 @@ new page.Route(plugin.id + ":play:(.*):(.*):(.*):(.*):(.*)", function(page, ts, 
             title: unescape(title)
         });
     };
-    page.source = "videoparams:" + showtime.JSONEncode(videoparams);
+    page.source = "videoparams:" + JSON.stringify(videoparams);
     page.loading = false;
 });
 
@@ -370,8 +378,8 @@ function scraper(page, blob) {
         } else 
             status = match[2].replace(/quality">/, '');
         page.appendItem(plugin.id + ':indexItem:' + escape(match[4]) + ':' + escape(match[5]) + ':' + series, 'video', {
-            title: new showtime.RichText(coloredStr(status, orange) + ' ' + match[5]),
-            icon: showtime.entityDecode(match[3])
+            title: new RichText(coloredStr(status, orange) + ' ' + match[5]),
+            icon: string.entityDecode(match[3])
         });
         page.entries++;                   
         match = re.exec(blob);

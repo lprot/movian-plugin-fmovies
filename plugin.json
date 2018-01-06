@@ -4,12 +4,12 @@
 	"homepage": "http://github.com/lprot/movian-plugin-fmovies",
 	"title": "FMovies",
 	"synopsis": "FMovies : Watch movies online for free",
-	"version": "0.1.11",
+	"version": "0.1.12",
         "file": "fmovies.js",
 	"showtimeVersion": "4.8",
 	"type": "ecmascript",
 	"icon": "logo.png",
 	"id": "fmovies",
 	"category": "video",
-        "apiversion": 1
+        "apiversion": 2
 }
