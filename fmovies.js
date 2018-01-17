@@ -1,5 +1,5 @@
 /**
- * FMovies plugin for Movian Media Center
+ * BMovies plugin for Movian Media Center
  *
  *  Copyright (C) 2018 lprot
  *
@@ -49,13 +49,12 @@ function setPageHeader(page, title) {
     page.model.contents = 'grid';
     page.type = "directory";
     page.contents = "items";
-    page.loading = true;
 }
 
 service.create(plugin.title, plugin.id + ":start", 'video', true, logo);
 
 settings.globalSettings(plugin.id, plugin.title, logo, plugin.synopsis);
-settings.createString('baseURL', "Base URL without '/' at the end", 'https://fmovies.is', function(v) {
+settings.createString('baseURL', "Base URL without '/' at the end", 'https://bmovies.is', function(v) {
     service.baseURL = v;
 });
 settings.createBool('debug', 'Enable debug logging',  false, function(v) {
@@ -150,10 +149,6 @@ function getIMDBid(title) {
         splittedTitle = title.split('-');
     log('Splitted title is: ' + splittedTitle);
     if (splittedTitle[1]) { // first we look by original title
-        var cleanTitle = splittedTitle[1];//.trim();
-        var match = cleanTitle.match(/[^\(|\[|\.]*/);
-        if (match)
-            cleanTitle = match;
         log('Trying to get IMDB ID for: ' + cleanTitle);
         resp = http.request('http://www.imdb.com/find?ref_=nv_sr_fn&q=' + encodeURIComponent(cleanTitle)).toString();
         imdbid = resp.match(/class="findResult[\s\S]*?<a href="\/title\/(tt\d+)\//);
@@ -171,9 +166,6 @@ function getIMDBid(title) {
         for (var i in splittedTitle) {
             if (i == 1) continue; // we already checked that
             var cleanTitle = splittedTitle[i].trim();
-            var match = cleanTitle.match(/[^\(|\[|\.]*/);
-            if (match)
-                cleanTitle = match;
             log('Trying to get IMDB ID (2nd attempt) for: ' + cleanTitle);
             resp = http.request('http://www.imdb.com/find?ref_=nv_sr_fn&q=' + encodeURIComponent(cleanTitle)).toString();
             imdbid = resp.match(/class="findResult[\s\S]*?<a href="\/title\/(tt\d+)\//);
@@ -353,7 +345,8 @@ new page.Route(plugin.id + ":start", function(page) {
     page.appendItem(plugin.id + ":search:", 'search', {
         title: 'Search in ' + service.baseURL
     });
-    doc = http.request(service.baseURL, {
+    page.loading = true;
+    doc = http.request(service.baseURL + (service.baseURL.match(/bmovies/) ? '/bmovies' : ''), {
         headers: {
             'User-Agent': UA
         }
@@ -398,14 +391,15 @@ function loadFromURL(page, url) {
                 'User-Agent': UA
             }
         }).toString();
-        if (!doc.match(/<div class="item"/)) return tryToSearch = false;
 	page.loading = false;
+        if (!doc.match(/<div class="item"/)) return tryToSearch = false;
         scraper(page, doc);
         fromPage++;
 	return true;
     };
     loader();
     page.paginator = loader;
+    page.loading = false;
 }
 
 new page.Route(plugin.id + ":loadFromURL:(.*):(.*)", function(page, url, title) {
