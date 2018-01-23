@@ -342,15 +342,18 @@ function addSection(page, sectionName, widgetName) {
 
 new page.Route(plugin.id + ":start", function(page) {
     setPageHeader(page, plugin.synopsis);
-    page.appendItem(plugin.id + ":search:", 'search', {
-        title: 'Search in ' + service.baseURL
-    });
     page.loading = true;
     doc = http.request(service.baseURL + (service.baseURL.match(/bmovies/) ? '/bmovies' : ''), {
         headers: {
             'User-Agent': UA
         }
     }).toString();
+    var match = doc.match(/<meta property="og:url" content="([\s\S]*?)"/);
+    if (match && (service.baseURL != match[1])) 
+         service.baseURL = match[1]
+    page.appendItem(plugin.id + ":search:", 'search', {
+        title: 'Search in ' + service.baseURL
+    });
     addSection(page, 'SUGGESTIONS', 'recommend');
     addSection(page, 'LATEST MOVIES', 'latest-movies');
     addSection(page, 'LATEST TV-SERIES', 'latest-series');
@@ -379,7 +382,8 @@ function scraper(page, blob) {
     }        
 }
 
-function loadFromURL(page, url) {
+function loadFromURL(page, url, title) {
+    setPageHeader(page, title);
     page.entries = 0;
     var fromPage = 1, tryToSearch = true;
 
@@ -403,15 +407,13 @@ function loadFromURL(page, url) {
 }
 
 new page.Route(plugin.id + ":loadFromURL:(.*):(.*)", function(page, url, title) {
-    setPageHeader(page, unescape(title));
-    loadFromURL(page, unescape(url) + '?page=');
+    loadFromURL(page, unescape(url) + '?page=', unescape(title));
 });
 
 new page.Route(plugin.id + ":search:(.*)", function(page, query) {
-    setPageHeader(page, plugin.synopsis + ' / ' + query);
-    loadFromURL(page, service.baseURL + '/search?keyword=' + query.replace(/\s/g, '\+') + '&page=');
+    loadFromURL(page, service.baseURL + '/search?keyword=' + query.replace(/\s/g, '\+') + '&page=', plugin.title);
 });
 
 page.Searcher(plugin.id, logo, function(page, query) {
-    loadFromURL(page, service.baseURL + '/search?keyword=' + query.replace(/\s/g, '\+') + '&page=');
+    loadFromURL(page, service.baseURL + '/search?keyword=' + query.replace(/\s/g, '\+') + '&page=', plugin.title);
 });
