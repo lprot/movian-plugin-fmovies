@@ -54,7 +54,7 @@ function setPageHeader(page, title) {
 service.create(plugin.title, plugin.id + ":start", 'video', true, logo);
 
 settings.globalSettings(plugin.id, plugin.title, logo, plugin.synopsis);
-settings.createString('baseURL', "Base URL without '/' at the end", 'https://bmovies.is', function(v) {
+settings.createString('baseURL', "Base URL without '/' at the end", 'https://bmovies.pro', function(v) {
     service.baseURL = v;
 });
 settings.createBool('debug', 'Enable debug logging',  false, function(v) {
@@ -84,7 +84,7 @@ function getTheList(blob) {
 }
 
 new page.Route(plugin.id + ":indexItem:(.*):(.*):(.*)", function(page, url, title, series) {
-    setPageHeader(page, plugin.synopsis + ' / ' + unescape(title));
+    setPageHeader(page, plugin.title + ' / ' + unescape(title));
     page.model.contents = 'list';
     page.loading = true;
     log('Indexing: ' + service.baseURL + unescape(url));
