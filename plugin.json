@@ -4,7 +4,7 @@
 	"homepage": "http://github.com/lprot/movian-plugin-fmovies",
 	"title": "BMovies",
 	"synopsis": "BMovies : Watch movies online for free",
-	"version": "0.1.14",
+	"version": "0.2",
         "file": "fmovies.js",
 	"showtimeVersion": "4.8",
 	"type": "ecmascript",

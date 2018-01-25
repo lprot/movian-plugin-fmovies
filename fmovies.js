@@ -95,28 +95,36 @@ new page.Route(plugin.id + ":indexItem:(.*):(.*):(.*)", function(page, url, titl
          }
     }).toString();
 
+    var background = doc.match(/background-image:[\s\S]*?url=([\s\S]*?)'/);
+    if (background) {
+        page.metadata.background = background[1];
+        page.metadata.backgroundAlpha = 0.3;
+    }
+
     // 1-icon, 2-imdb rating, 3-duration, 4-description, 5-genres blob, 6-actors blob, 
     // 7-director, 8-country blob, 9-rating, 10-views, 11-released, 12-quality
     var match = doc.match(/<div id="info"[\s\S]*?<img src="([\s\S]*?)"[\s\S]*?class="imdb">[\s\S]*?<b>([\s\S]*?)<\/b>[\s\S]*?fa-clock-o">[\s\S]*?<b>([\s\S]*?)min[\s\S]*?class="desc">([\s\S]*?)<\/div>[\s\S]*?<dd>([\s\S]*?)<\/dd>[\s\S]*?<dd>([\s\S]*?)<\/dd>[\s\S]*?<dd>([\s\S]*?)<\/dd>[\s\S]*?<dd>([\s\S]*?)<\/dd>[\s\S]*?class="rating">[\s\S]*?<span>([\s\S]*?)<\/span>[\s\S]*?<span>([\s\S]*?)<\/span>[\s\S]*?<dd>([\s\S]*?)<\/dd>[\s\S]*?class="quality">([\s\S]*?)<\/span>/);
-    page.appendPassiveItem('video', '', {
+    var stars = match[6];
+    page.appendItem(string.entityDecode(match[1]), 'video', {
         title: unescape(title),
         icon: string.entityDecode(match[1]),
         duration: trim(match[3]) != 'na' ? match[3] * 60 : 0,
         rating: match[9] * 10,
-        genre: getTheList(match[5]),
+        genre: new RichText(getTheList(match[5]) +
+            coloredStr('<br>Country: ', orange) + getTheList(match[8]) +
+            (trim(match[7]) != '...' ? coloredStr('<br>Director: ', orange) + trim(match[7]).replace(/,/g, ', ')  : '')),
         year: +match[11].substring(0, 4),
-        description: new RichText(coloredStr('Released: ', orange) + trim(match[11]) +
-            coloredStr(' Views: ', orange) + trim(match[10]) +
-            coloredStr(' Country: ', orange) + getTheList(match[8]) +
-            (trim(match[7]) != '...' ? coloredStr(' Director: ', orange) + trim(match[7]) : '') +
-            (trim(getTheList(match[6])) ? coloredStr(' Actors: ', orange) + getTheList(match[6]) : '') +
-            (trim(match[4]) ? coloredStr('<br>Description: ', orange) + trim(match[4]).replace(/<p>/g, '') : ''))
+        tagline: new RichText(coloredStr('Released: ', orange) + trim(match[11]) +
+            coloredStr(' Views: ', orange) + trim(match[10])),
+        description: new RichText(
+            //(trim(getTheList(stars)) ? coloredStr('Actors: ', orange) + getTheList(stars) : '') +
+            (trim(match[4]) ? trim(match[4]).replace(/<p>/g, '') : ''))
     });
     var ts = doc.match(/data-ts="([\s\S]*?)">/)[1];
 
     // 1-server, 2-server name, 3-episodes blob
     var re = /<div class="server row"[\s\S]*?data-id="([\s\S]*?)"[\s\S]*?<\/i>([\s\S]*?)<\/label>[\s\S]*?<ul class="episodes([\s\S]*?)<\/ul>/g;    
-    var match = re.exec(doc);
+    match = re.exec(doc);
     while (match) {
         // 1-id, 2-referer, 3-title
         var re2 = /data-id="([\s\S]*?)"[\s\S]*?href="([\s\S]*?)">([\s\S]*?)<\/a>/g;
@@ -129,7 +137,28 @@ new page.Route(plugin.id + ":indexItem:(.*):(.*):(.*)", function(page, url, titl
             match2 = re2.exec(match[3]);
         }              
         match = re.exec(doc);
-    }        
+    }
+
+    // actors
+    if (stars) {
+        page.appendItem("", "separator", {
+            title: 'Actors:'
+        });
+        //1-link, 2-page header, 3-star's name
+        re = /<a href="([\s\S]*?)"[\s\S]*?title="([\s\S]*?)">([\s\S]*?)<\/a>/g;
+        var star = re.exec(stars);
+        while (star) {
+            page.appendItem(plugin.id + ':loadFromURL:' + escape(star[1]) + ':' + escape(star[2]), 'video', {
+                title: trim(star[3].replace(/>/g, ''))
+            });
+            star = re.exec(stars);
+        }
+    }
+
+    page.appendItem("", "separator", {
+        title: 'You might also like:'
+    });
+    scraper(page, doc);
     page.loading = false;
 });
 
