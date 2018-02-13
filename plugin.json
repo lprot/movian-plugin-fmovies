@@ -1,10 +1,10 @@
 {
-	"description": "<p>BMovies : Watch movies online for free<p>For additional information, visit <a href=\"http://bmovies.is\">http://bmovies.is</a>",
+	"description": "<p>BMovies : Watch movies online for free<p>For additional information, visit <a href=\"http://bmovies.to\">http://bmovies.to</a>",
 	"author": "lprot",
-	"homepage": "http://github.com/lprot/movian-plugin-fmovies",
+	"homepage": "http://github.com/lprot/movian-plugin-bmovies",
 	"title": "BMovies",
 	"synopsis": "BMovies : Watch movies online for free",
-	"version": "0.2",
+	"version": "0.2.1",
         "file": "fmovies.js",
 	"showtimeVersion": "4.8",
 	"type": "ecmascript",

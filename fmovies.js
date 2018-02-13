@@ -54,7 +54,7 @@ function setPageHeader(page, title) {
 service.create(plugin.title, plugin.id + ":start", 'video', true, logo);
 
 settings.globalSettings(plugin.id, plugin.title, logo, plugin.synopsis);
-settings.createString('baseURL', "Base URL without '/' at the end", 'https://bmovies.pro', function(v) {
+settings.createString('baseURL', "Base URL without '/' at the end", 'https://bmovies.to', function(v) {
     service.baseURL = v;
 });
 settings.createBool('debug', 'Enable debug logging',  false, function(v) {
@@ -84,7 +84,7 @@ function getTheList(blob) {
 }
 
 new page.Route(plugin.id + ":indexItem:(.*):(.*):(.*)", function(page, url, title, series) {
-    setPageHeader(page, plugin.title + ' / ' + unescape(title));
+    setPageHeader(page, unescape(title));
     page.model.contents = 'list';
     page.loading = true;
     log('Indexing: ' + service.baseURL + unescape(url));
@@ -107,7 +107,7 @@ new page.Route(plugin.id + ":indexItem:(.*):(.*):(.*)", function(page, url, titl
     var stars = match[6];
     page.appendItem(string.entityDecode(match[1]), 'video', {
         title: unescape(title),
-        icon: string.entityDecode(match[1]),
+        icon: page.metadata.logo = string.entityDecode(match[1]),
         duration: trim(match[3]) != 'na' ? match[3] * 60 : 0,
         rating: match[9] * 10,
         genre: new RichText(getTheList(match[5]) +
